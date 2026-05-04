@@ -60,7 +60,7 @@ const GLchar* fragmentShaderSource =
     "color = finalColor;\n"
     "}\n\0";
 
-bool rotateX = false, rotateY = false, rotateZ = false;
+bool rotateX = false, rotateY = true, rotateZ = false;
 
 // Função MAIN
 int main() {

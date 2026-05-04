@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(CGCCHIB)
+project(OPENGLEXERCISES)
 
 # Define o padrão do C++
 set(CMAKE_CXX_STANDARD 17)
@@ -25,11 +25,12 @@ FetchContent_Declare(
 # Faz o download e compila as bibliotecas
 FetchContent_MakeAvailable(glfw glm)
 
+
 # Configura o FetchContent para baixar a stb_image automaticamente
 FetchContent_Declare(
-  stb_image
-  GIT_REPOSITORY https://github.com/nothings/stb.git
-  GIT_TAG master
+        stb_image
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG master
 )
 
 FetchContent_MakeAvailable(stb_image)
@@ -39,15 +40,11 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/common)
 include_directories(${CMAKE_SOURCE_DIR}/include/glad)
 include_directories(${glm_SOURCE_DIR})
-include_directories(${stb_image_SOURCE_DIR})
 
 
 # Lista de exemplos/exercícios podem ser colocados aqui também
 set(EXERCISES
-    Hello3D
-    TriangleTex
-    SpherePhong
-   
+    main
 )
 
 add_compile_options(-Wno-pragmas)
@@ -73,7 +70,8 @@ endif()
 
 # Cria os executáveis
 foreach(EXERCISE ${EXERCISES})
-    add_executable(${EXERCISE} src/${EXERCISE}.cpp ${GLAD_C_FILE})
-    target_include_directories(${EXERCISE} PRIVATE ${CMAKE_SOURCE_DIR}/include/glad ${glm_SOURCE_DIR} ${stb_image_SOURCE_DIR})
-    target_link_libraries(${EXERCISE} glfw ${OPENGL_LIBS})
+    get_filename_component(EXE_NAME ${EXERCISE} NAME)
+    add_executable(${EXE_NAME} src/${EXERCISE}.cpp ${GLAD_C_FILE})
+    target_include_directories(${EXE_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include/glad ${glm_SOURCE_DIR} ${stb_image_SOURCE_DIR})
+    target_link_libraries(${EXE_NAME} glfw ${OPENGL_LIBS})
 endforeach()
