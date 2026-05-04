@@ -11,6 +11,22 @@ using namespace std;
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
+class Cube {
+  public:
+    float angleX, angleY, angleZ;
+    float posX, posY, posZ;
+    float scale;
+
+    Cube()
+        : angleX(0.0f),
+          angleY(0.0f),
+          angleZ(0.0f),
+          posX(0.0f),
+          posY(0.0f),
+          posZ(0.0f),
+          scale(1.0f) {}
+};
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action,
                   int mode);
 
@@ -42,9 +58,8 @@ const GLchar* fragmentShaderSource =
     "color = finalColor;\n"
     "}\n\0";
 
-float angleX = 0.0, angleY = 0.0, angleZ = 0.0;
-float posX = 0.0, posY = 0.0, posZ = 0.0;
-float scale = 1.0;
+std::vector<Cube> cubes(10);
+int selectedCube = 0;
 
 int main() {
     glfwInit();
@@ -81,7 +96,6 @@ int main() {
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -96,29 +110,30 @@ int main() {
 
         float angle = (GLfloat)glfwGetTime();
 
-        model = glm::mat4(1);
-        model = glm::rotate(model, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, angleY, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::scale(model, glm::vec3(scale));
-        model = glm::translate(model, glm::vec3(posX, 0.0f, 0.0f));
-        model = glm::translate(model, glm::vec3(0.0f, posY, 0.0f));
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, posZ));
+        for (int i = 0; i < cubes.size(); i++) {
+            Cube c = cubes.at(i);
 
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        // Chamada de desenho - drawcall
-        // Poligono Preenchido - GL_TRIANGLES
+            model = glm::mat4(1);
+            model = glm::rotate(model, c.angleX, glm::vec3(1.0f, 0.0f, 0.0f));
+            model = glm::rotate(model, c.angleY, glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, c.angleZ, glm::vec3(0.0f, 0.0f, 1.0f));
+            model = glm::scale(model, glm::vec3(c.scale));
+            model = glm::translate(model, glm::vec3(c.posX, 0.0f, 0.0f));
+            model = glm::translate(model, glm::vec3(0.0f, c.posY, 0.0f));
+            model = glm::translate(model, glm::vec3(0.0f, 0.0f, c.posZ));
 
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
-        // Chamada de desenho - drawcall
-        // CONTORNO - GL_LINE_LOOP
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
 
-        glDrawArrays(GL_POINTS, 0, 18);
-        glBindVertexArray(0);
+            if (i == selectedCube) {
+                glDrawArrays(GL_POINTS, 0, 18);
+            }
 
-        // Troca os buffers da tela
+            glBindVertexArray(0);
+        }
+
         glfwSwapBuffers(window);
     }
     // Pede pra OpenGL desalocar os buffers
@@ -143,48 +158,55 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action,
 }
 
 void handleInput() {
+    for (int i = 0; i <= 9; ++i) {
+        if (keys[GLFW_KEY_0 + i]) {
+            selectedCube = i;
+        }
+    }
+
+    Cube& c = cubes.at(selectedCube);
     if (keys[GLFW_KEY_X]) {
-        angleX += 0.1;
+        c.angleX += 0.1;
     }
 
     if (keys[GLFW_KEY_Y]) {
-        angleY += 0.1;
+        c.angleY += 0.1;
     }
 
     if (keys[GLFW_KEY_Z]) {
-        angleZ += 0.1;
+        c.angleZ += 0.1;
     }
 
     if (keys[GLFW_KEY_W]) {
-        posZ += 0.1;
+        c.posZ += 0.1;
     }
 
     if (keys[GLFW_KEY_A]) {
-        posX -= 0.1;
+        c.posX -= 0.1;
     }
 
     if (keys[GLFW_KEY_S]) {
-        posZ -= 0.1;
+        c.posZ -= 0.1;
     }
 
     if (keys[GLFW_KEY_D]) {
-        posX += 0.1;
+        c.posX += 0.1;
     }
 
     if (keys[GLFW_KEY_I]) {
-        posY += 0.1;
+        c.posY += 0.1;
     }
 
     if (keys[GLFW_KEY_J]) {
-        posY -= 0.1;
+        c.posY -= 0.1;
     }
 
     if (keys[GLFW_KEY_LEFT_BRACKET]) {
-        scale += 0.1;
+        c.scale += 0.1;
     }
 
     if (keys[GLFW_KEY_RIGHT_BRACKET]) {
-        scale -= 0.1;
+        c.scale -= 0.1;
     }
 }
 
