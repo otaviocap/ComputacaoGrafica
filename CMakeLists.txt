@@ -44,7 +44,8 @@ include_directories(${glm_SOURCE_DIR})
 
 # Lista de exemplos/exercícios podem ser colocados aqui também
 set(EXERCISES
-    main
+    cubes
+    obj
 )
 
 add_compile_options(-Wno-pragmas)
