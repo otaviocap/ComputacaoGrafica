@@ -2,10 +2,15 @@
 
 ---
 
-# Tarefa - Criando o ambiente de Programação de cenas 3D
+# Tarefa 1 - Criando o ambiente de Programação de cenas 3D
 
 ![primeiro triangulo renderizado](docs/ola3d.png)
 
-# Tarefa - Instanciando objetos na cena 3D
+# Tarefa 2 - Instanciando objetos na cena 3D
 
 ![múltiplos cubos em cena](docs/instanciando_objetos_3d.png)
+
+
+# Tarefa 3 - Carregando obj com mtl
+
+![suzanne em cena](docs/carregando_obj.png)

@@ -14,13 +14,76 @@ using namespace std;
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+GLuint textureID = 0;
+
+string getDirectory(string filePATH) {
+    size_t found = filePATH.find_last_of("/\\");
+    if (found == string::npos) return "";
+    return filePATH.substr(0, found + 1);
+}
+
+string loadTextureNameFromMTL(string mtlPATH) {
+    std::ifstream arqEntrada(mtlPATH.c_str());
+    if (!arqEntrada.is_open()) {
+        std::cerr << "Erro ao tentar ler o arquivo " << mtlPATH << std::endl;
+        return "";
+    }
+
+    std::string line;
+    while (std::getline(arqEntrada, line)) {
+        std::istringstream ssline(line);
+        std::string word;
+        ssline >> word;
+
+        if (word == "map_Kd") {
+            string textureFile;
+            ssline >> textureFile;
+            return textureFile;
+        }
+    }
+
+    return "";
+}
+
+GLuint loadTexture(string filePATH) {
+    GLuint texID;
+    glGenTextures(1, &texID);
+    glBindTexture(GL_TEXTURE_2D, texID);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    int width, height, nrChannels;
+    unsigned char* data =
+        stbi_load(filePATH.c_str(), &width, &height, &nrChannels, 0);
+
+    if (data) {
+        GLenum format = nrChannels == 4 ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
+                     GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::cout << "Failed to load texture " << filePATH << std::endl;
+    }
+
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return texID;
+}
+
 int loadSimpleOBJ(string filePATH, int& nVertices) {
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec2> texCoords;
     std::vector<glm::vec3> normals;
     std::vector<GLfloat> vBuffer;
-    glm::vec3 color = glm::vec3(1.0, 0.0, 0.0);
     string mtlFile;
+    string objDirectory = getDirectory(filePATH);
 
     std::ifstream arqEntrada(filePATH.c_str());
     if (!arqEntrada.is_open()) {
@@ -62,9 +125,8 @@ int loadSimpleOBJ(string filePATH, int& nVertices) {
                 vBuffer.push_back(vertices[vi].x);
                 vBuffer.push_back(vertices[vi].y);
                 vBuffer.push_back(vertices[vi].z);
-                vBuffer.push_back(color.r);
-                vBuffer.push_back(color.g);
-                vBuffer.push_back(color.b);
+                vBuffer.push_back(texCoords[ti].s);
+                vBuffer.push_back(1.0f - texCoords[ti].t);
             }
         } else if (word == "mtllib") {
             ssline >> mtlFile;
@@ -72,6 +134,13 @@ int loadSimpleOBJ(string filePATH, int& nVertices) {
     }
 
     arqEntrada.close();
+
+    if (!mtlFile.empty()) {
+        string textureFile = loadTextureNameFromMTL(objDirectory + mtlFile);
+        if (!textureFile.empty()) {
+            textureID = loadTexture(objDirectory + textureFile);
+        }
+    }
 
     std::cout << "Gerando o buffer de geometria..." << std::endl;
     GLuint VBO, VAO;
@@ -83,11 +152,11 @@ int loadSimpleOBJ(string filePATH, int& nVertices) {
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat),
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
                           (GLvoid*)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat),
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat),
                           (GLvoid*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
 
@@ -96,7 +165,7 @@ int loadSimpleOBJ(string filePATH, int& nVertices) {
 
     nVertices =
         vBuffer.size() /
-        6;  // x, y, z, r, g, b (valores atualmente armazenados por vértice)
+        5;  // x, y, z, s, t (valores armazenados por vértice)
 
     return VAO;
 }
@@ -180,6 +249,12 @@ int main() {
     GLuint VAO = loadSimpleOBJ("../assets/Modelos3D/Suzanne.obj", vertexNum);
 
     glUseProgram(shaderID);
+    glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
+    glActiveTexture(GL_TEXTURE0);
+
+    glm::mat4 projection = glm::mat4(1);
+    glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1,
+                       GL_FALSE, glm::value_ptr(projection));
 
     glm::mat4 model = glm::mat4(1);
     GLint modelLoc = glGetUniformLocation(shaderID, "model");
@@ -214,6 +289,7 @@ int main() {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         glBindVertexArray(VAO);
+        glBindTexture(GL_TEXTURE_2D, textureID);
         glDrawArrays(GL_TRIANGLES, 0, vertexNum);
 
         // glDrawArrays(GL_POINTS, 0, vertexNum);
@@ -223,6 +299,7 @@ int main() {
         glfwSwapBuffers(window);
     }
     glDeleteVertexArrays(1, &VAO);
+    glDeleteTextures(1, &textureID);
     glfwTerminate();
     return 0;
 }
