@@ -46,6 +46,7 @@ include_directories(${glm_SOURCE_DIR})
 set(EXERCISES
     cubes
     obj
+    vivencial1
 )
 
 add_compile_options(-Wno-pragmas)

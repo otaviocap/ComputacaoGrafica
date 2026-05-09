@@ -14,3 +14,7 @@
 # Tarefa 3 - Carregando obj com mtl
 
 ![suzanne em cena](docs/carregando_obj.png)
+
+# Vivencial 1 - Carregamento de multiplos objs
+
+![multiplos objs](multiObjs.png)
