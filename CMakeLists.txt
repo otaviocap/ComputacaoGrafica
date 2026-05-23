@@ -48,6 +48,7 @@ set(EXERCISES
     obj
     vivencial1
     phong
+    fps
 )
 
 add_compile_options(-Wno-pragmas)

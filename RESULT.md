@@ -22,3 +22,7 @@
 # Tarefa 4 - Iluminação Phong
 
 ![suzanne iluminada pelo método Phong](docs/suzanne_phong.png)
+
+# Tarefa 5 - Camera em primeira pessoa
+
+![Camera em primeira pessoa](docs/fps.png)
