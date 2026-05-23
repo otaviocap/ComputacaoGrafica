@@ -5,6 +5,7 @@ using namespace std;
 #include <fstream>
 #include <glm/glm.hpp>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -24,9 +25,9 @@ const float SENSITIVITY = 0.05f;
 const float ROTATION_SPEED = 10.0f;
 
 struct Material {
-    glm::vec3 ambient = glm::vec3(0.1f);
+    glm::vec3 ambient = glm::vec3(1.0f);
     glm::vec3 diffuse = glm::vec3(1.0f);
-    glm::vec3 specular = glm::vec3(0.5f);
+    glm::vec3 specular = glm::vec3(0.0f);
     float shininess = 32.0f;
 };
 
@@ -82,16 +83,20 @@ class Camera {
     }
 };
 
+struct Mesh {
+    GLuint vao;
+    int vertexCount;
+    GLuint textureId;
+    Material material;
+};
+
 class GameObject {
   public:
     float angleX, angleY, angleZ;
     float posX, posY, posZ;
     float scale;
 
-    GLuint vao;
-    int vertexNum;
-    GLuint textureId;
-    Material material;
+    vector<Mesh> meshes;
 
     GameObject()
         : angleX(0.0f),
@@ -100,10 +105,7 @@ class GameObject {
           posX(0.0f),
           posY(0.0f),
           posZ(0.0f),
-          scale(0.3f),
-          vao(0),
-          vertexNum(0),
-          textureId(0) {}
+          scale(0.3f) {}
 
     glm::mat4 getModelMatrix() const {
         glm::mat4 model = glm::mat4(1.0f);
@@ -163,7 +165,9 @@ out vec4 color;
 void main()
 {
     vec3 albedo = texture(texBuff, texCoord).rgb;
-    vec3 ambient = materialAmbient * lightColor * albedo;
+    if (albedo == vec3(0.0)) albedo = vec3(1.0);
+
+    vec3 ambient = materialAmbient * lightColor * albedo * 0.5;
 
     vec3 norm = normalize(vNormal);
     vec3 lightDir = normalize(lightPos - fragPos);
@@ -291,19 +295,19 @@ GLuint loadTexture(string filePath) {
     return texID;
 }
 
-int loadSimpleOBJ(string filePath, int& nVertices, GLuint& textureId,
-                  Material& material) {
+void loadOBJ(string filePath, GameObject& gameObject) {
     vector<glm::vec3> vertices;
     vector<glm::vec2> texCoords;
     vector<glm::vec3> normals;
-    vector<GLfloat> vBuffer;
+    map<string, Material> materials;
+    map<string, GLuint> textures;
     string mtlFile;
     string objDirectory = getDirectory(filePath);
 
     ifstream file(filePath.c_str());
     if (!file.is_open()) {
         cerr << "Erro ao tentar ler o arquivo " << filePath << endl;
-        return -1;
+        return;
     }
 
     string line;
@@ -324,6 +328,117 @@ int loadSimpleOBJ(string filePath, int& nVertices, GLuint& textureId,
             glm::vec3 normal;
             ss >> normal.x >> normal.y >> normal.z;
             normals.push_back(normal);
+        } else if (word == "mtllib") {
+            ss >> mtlFile;
+        }
+    }
+
+    file.close();
+
+    if (!mtlFile.empty()) {
+        ifstream mtlStream((objDirectory + mtlFile).c_str());
+        if (mtlStream.is_open()) {
+            Material currentMaterial;
+            string currentMaterialName;
+            string currentTextureFile;
+
+            while (getline(mtlStream, line)) {
+                istringstream mtlSS(line);
+                string mtlWord;
+                mtlSS >> mtlWord;
+
+                if (mtlWord == "newmtl") {
+                    if (!currentMaterialName.empty()) {
+                        materials[currentMaterialName] = currentMaterial;
+                        if (!currentTextureFile.empty() &&
+                            textures.find(currentMaterialName) == textures.end()) {
+                            textures[currentMaterialName] =
+                                loadTexture(objDirectory + currentTextureFile);
+                        }
+                    }
+                    mtlSS >> currentMaterialName;
+                    currentMaterial = Material();
+                    currentTextureFile.clear();
+                } else if (mtlWord == "Ka") {
+                    mtlSS >> currentMaterial.ambient.r >>
+                        currentMaterial.ambient.g >> currentMaterial.ambient.b;
+                } else if (mtlWord == "Kd") {
+                    mtlSS >> currentMaterial.diffuse.r >>
+                        currentMaterial.diffuse.g >> currentMaterial.diffuse.b;
+                } else if (mtlWord == "Ks") {
+                    mtlSS >> currentMaterial.specular.r >>
+                        currentMaterial.specular.g >>
+                        currentMaterial.specular.b;
+                } else if (mtlWord == "Ns") {
+                    mtlSS >> currentMaterial.shininess;
+                } else if (mtlWord == "map_Kd") {
+                    mtlSS >> currentTextureFile;
+                }
+            }
+            if (!currentMaterialName.empty()) {
+                materials[currentMaterialName] = currentMaterial;
+                if (!currentTextureFile.empty() &&
+                    textures.find(currentMaterialName) == textures.end()) {
+                    textures[currentMaterialName] =
+                        loadTexture(objDirectory + currentTextureFile);
+                }
+            }
+            mtlStream.close();
+        }
+    }
+
+    file.open(filePath.c_str());
+    string currentMaterialName = "default";
+    vector<GLfloat> currentMeshBuffer;
+
+    while (getline(file, line)) {
+        istringstream ss(line);
+        string word;
+        ss >> word;
+
+        if (word == "usemtl") {
+            if (!currentMeshBuffer.empty()) {
+                Mesh mesh;
+                mesh.material = materials.count(currentMaterialName)
+                                    ? materials[currentMaterialName]
+                                    : Material();
+                mesh.textureId = textures.count(currentMaterialName)
+                                     ? textures[currentMaterialName]
+                                     : 0;
+                mesh.vertexCount = currentMeshBuffer.size() / 8;
+
+                GLuint VBO, VAO;
+                glGenBuffers(1, &VBO);
+                glBindBuffer(GL_ARRAY_BUFFER, VBO);
+                glBufferData(GL_ARRAY_BUFFER,
+                             currentMeshBuffer.size() * sizeof(GLfloat),
+                             currentMeshBuffer.data(), GL_STATIC_DRAW);
+
+                glGenVertexArrays(1, &VAO);
+                glBindVertexArray(VAO);
+
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                                      8 * sizeof(GLfloat), (GLvoid*)0);
+                glEnableVertexAttribArray(0);
+
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+                                      8 * sizeof(GLfloat),
+                                      (GLvoid*)(3 * sizeof(GLfloat)));
+                glEnableVertexAttribArray(1);
+
+                glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
+                                      8 * sizeof(GLfloat),
+                                      (GLvoid*)(5 * sizeof(GLfloat)));
+                glEnableVertexAttribArray(2);
+
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glBindVertexArray(0);
+
+                mesh.vao = VAO;
+                gameObject.meshes.push_back(mesh);
+                currentMeshBuffer.clear();
+            }
+            ss >> currentMaterialName;
         } else if (word == "f") {
             while (ss >> word) {
                 int vi = 0, ti = -1, ni = -1;
@@ -344,67 +459,66 @@ int loadSimpleOBJ(string filePath, int& nVertices, GLuint& textureId,
                                        ? normals[ni]
                                        : glm::vec3(0.0f, 0.0f, 1.0f);
 
-                vBuffer.push_back(vertices[vi].x);
-                vBuffer.push_back(vertices[vi].y);
-                vBuffer.push_back(vertices[vi].z);
-                vBuffer.push_back(texCoord.s);
-                vBuffer.push_back(1.0f - texCoord.t);
-                vBuffer.push_back(normal.x);
-                vBuffer.push_back(normal.y);
-                vBuffer.push_back(normal.z);
+                currentMeshBuffer.push_back(vertices[vi].x);
+                currentMeshBuffer.push_back(vertices[vi].y);
+                currentMeshBuffer.push_back(vertices[vi].z);
+                currentMeshBuffer.push_back(texCoord.s);
+                currentMeshBuffer.push_back(1.0f - texCoord.t);
+                currentMeshBuffer.push_back(normal.x);
+                currentMeshBuffer.push_back(normal.y);
+                currentMeshBuffer.push_back(normal.z);
             }
-        } else if (word == "mtllib") {
-            ss >> mtlFile;
         }
+    }
+
+    if (!currentMeshBuffer.empty()) {
+        Mesh mesh;
+        mesh.material = materials.count(currentMaterialName)
+                            ? materials[currentMaterialName]
+                            : Material();
+        mesh.textureId = textures.count(currentMaterialName)
+                             ? textures[currentMaterialName]
+                             : 0;
+        mesh.vertexCount = currentMeshBuffer.size() / 8;
+
+        GLuint VBO, VAO;
+        glGenBuffers(1, &VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER,
+                     currentMeshBuffer.size() * sizeof(GLfloat),
+                     currentMeshBuffer.data(), GL_STATIC_DRAW);
+
+        glGenVertexArrays(1, &VAO);
+        glBindVertexArray(VAO);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat),
+                              (GLvoid*)0);
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat),
+                              (GLvoid*)(3 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(1);
+
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat),
+                              (GLvoid*)(5 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(2);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+
+        mesh.vao = VAO;
+        gameObject.meshes.push_back(mesh);
     }
 
     file.close();
-
-    if (!mtlFile.empty()) {
-        string textureFile;
-        material = loadMaterialFromMTL(objDirectory + mtlFile, textureFile);
-        if (!textureFile.empty()) {
-            textureId = loadTexture(objDirectory + textureFile);
-        }
-    }
-
-    cout << "Gerando o buffer de geometria..." << endl;
-    GLuint VBO, VAO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vBuffer.size() * sizeof(GLfloat),
-                 vBuffer.data(), GL_STATIC_DRAW);
-
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat),
-                          (GLvoid*)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat),
-                          (GLvoid*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat),
-                          (GLvoid*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    nVertices = vBuffer.size() / 8;
-
-    return VAO;
+    cout << "OBJ loaded with " << gameObject.meshes.size() << " mesh groups"
+         << endl;
 }
 
 Camera camera;
 vector<GameObject> objects;
 
-string models[] = {
-    "../assets/Modelos3D/Suzanne.obj", "../assets/Modelos3D/Suzanne.obj",
-    "../assets/Modelos3D/Suzanne.obj", "../assets/Modelos3D/Suzanne.obj",
-    "../assets/Modelos3D/Suzanne.obj"};
+string models[] = {"../assets/lost-empire/lost_empire.obj"};
 int sizeOfModels = sizeof(models) / sizeof(models[0]);
 int selectedModel = 0;
 
@@ -510,7 +624,6 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -530,8 +643,7 @@ int main() {
 
     for (int i = 0; i < sizeOfModels; i++) {
         GameObject obj;
-        obj.vao = loadSimpleOBJ(models[i], obj.vertexNum, obj.textureId,
-                                obj.material);
+        loadOBJ(models[i], obj);
         objects.push_back(obj);
     }
 
@@ -539,8 +651,8 @@ int main() {
     glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
     glActiveTexture(GL_TEXTURE0);
 
-    glm::vec3 lightPos(0.6f, 1.2f, -0.5f);
-    glm::vec3 lightColor(0.5f, 0.5f, 0.5f);
+    glm::vec3 lightPos(5.0f, 10.0f, 5.0f);
+    glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
 
     glUniform3fv(glGetUniformLocation(shaderID, "lightPos"), 1,
                  glm::value_ptr(lightPos));
@@ -589,20 +701,25 @@ int main() {
 
             glm::mat4 model = obj.getModelMatrix();
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glUniform3fv(materialAmbientLoc, 1,
-                         glm::value_ptr(obj.material.ambient));
-            glUniform3fv(materialDiffuseLoc, 1,
-                         glm::value_ptr(obj.material.diffuse));
-            glUniform3fv(materialSpecularLoc, 1,
-                         glm::value_ptr(obj.material.specular));
-            glUniform1f(materialShininessLoc, obj.material.shininess);
 
-            glBindVertexArray(obj.vao);
-            glBindTexture(GL_TEXTURE_2D, obj.textureId);
-            glDrawArrays(GL_TRIANGLES, 0, obj.vertexNum);
+            for (int j = 0; j < (int)obj.meshes.size(); j++) {
+                Mesh& mesh = obj.meshes[j];
 
-            if (i == selectedModel) {
-                glDrawArrays(GL_POINTS, 0, obj.vertexNum);
+                glUniform3fv(materialAmbientLoc, 1,
+                             glm::value_ptr(mesh.material.ambient));
+                glUniform3fv(materialDiffuseLoc, 1,
+                             glm::value_ptr(mesh.material.diffuse));
+                glUniform3fv(materialSpecularLoc, 1,
+                             glm::value_ptr(mesh.material.specular));
+                glUniform1f(materialShininessLoc, mesh.material.shininess);
+
+                glBindVertexArray(mesh.vao);
+                glBindTexture(GL_TEXTURE_2D, mesh.textureId);
+                glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
+
+                // if (i == selectedModel) {
+                //     glDrawArrays(GL_POINTS, 0, mesh.vertexCount);
+                // }
             }
 
             glBindVertexArray(0);
@@ -612,8 +729,10 @@ int main() {
     }
 
     for (int i = 0; i < (int)objects.size(); i++) {
-        glDeleteVertexArrays(1, &objects[i].vao);
-        glDeleteTextures(1, &objects[i].textureId);
+        for (int j = 0; j < (int)objects[i].meshes.size(); j++) {
+            glDeleteVertexArrays(1, &objects[i].meshes[j].vao);
+            glDeleteTextures(1, &objects[i].meshes[j].textureId);
+        }
     }
 
     glfwTerminate();
