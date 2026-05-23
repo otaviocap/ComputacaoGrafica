@@ -17,4 +17,8 @@
 
 # Vivencial 1 - Carregamento de multiplos objs
 
-![multiplos objs](multiObjs.png)
+![multiplos objs](docs/multiObjs.png)
+
+# Tarefa 4 - Iluminação Phong
+
+![suzanne iluminada pelo método Phong](docs/suzanne_phong.png)

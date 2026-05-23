@@ -47,6 +47,7 @@ set(EXERCISES
     cubes
     obj
     vivencial1
+    phong
 )
 
 add_compile_options(-Wno-pragmas)
