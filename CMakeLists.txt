@@ -49,6 +49,7 @@ set(EXERCISES
     vivencial1
     phong
     fps
+    3lights
 )
 
 add_compile_options(-Wno-pragmas)

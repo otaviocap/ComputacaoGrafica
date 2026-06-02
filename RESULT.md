@@ -26,3 +26,7 @@
 # Tarefa 5 - Camera em primeira pessoa
 
 ![Camera em primeira pessoa](docs/fps.png)
+
+# Vivencial 2 - Multiplas luzes
+
+![multiplas luzes](docs/multiLight.png)
