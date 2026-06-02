@@ -30,3 +30,7 @@
 # Vivencial 2 - Multiplas luzes
 
 ![multiplas luzes](docs/multiLight.png)
+
+# Tarefa 6 - Curvas
+
+![Curva catmull](docs/curva.png)
