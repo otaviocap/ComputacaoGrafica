@@ -43,6 +43,7 @@ bool keys[1024];
 float lastFrame = 0.0f;
 float deltaTime = 0.0f;
 bool firstMouse = true;
+bool isMouseCaptured = false;
 float lastX = WIDTH / 2.0f;
 float lastY = HEIGHT / 2.0f;
 int viewportWidth = WIDTH;
@@ -107,9 +108,13 @@ void key_callback(GLFWwindow* window, int key, int, int action, int) {
     }
 
     if (action == GLFW_PRESS) {
-        for (int i = 0; i < static_cast<int>(modelPaths.size()); ++i) {
-            if (key == GLFW_KEY_1 + i) {
-                selectedModel = i == selectedModel ? -1 : i;
+        if (key == GLFW_KEY_ESCAPE) {
+            isMouseCaptured = !isMouseCaptured;
+            if (isMouseCaptured) {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            } else {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                firstMouse = true;
             }
         }
 
@@ -137,13 +142,13 @@ void key_callback(GLFWwindow* window, int key, int, int action, int) {
             }
         }
     }
-
-    if (keys[GLFW_KEY_ESCAPE]) {
-        glfwSetWindowShouldClose(window, GL_TRUE);
-    }
 }
 
 void mouse_callback(GLFWwindow*, double xpos, double ypos) {
+    if (!isMouseCaptured) {
+        return;
+    }
+
     if (firstMouse) {
         lastX = static_cast<float>(xpos);
         lastY = static_cast<float>(ypos);
@@ -302,9 +307,46 @@ void handleImGuiFrame() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    bool a = true;
+    ImGui::Begin("Scene Inspector");
 
-    ImGui::ShowDemoWindow(&a);
+    if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+        for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
+            std::string label = "Object " + std::to_string(i);
+            if (ImGui::Selectable(label.c_str(), selectedModel == i)) {
+                selectedModel = i;
+            }
+        }
+    }
+
+    if (selectedModel >= 0 &&
+        selectedModel < static_cast<int>(objects.size())) {
+        GameObject& obj = objects.at(selectedModel);
+        ImGui::Separator();
+        ImGui::Text("Selected: Object %d", selectedModel);
+
+        if (ImGui::CollapsingHeader("Transform",
+                                    ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::DragFloat3("Position", &obj.posX, 0.1f);
+            ImGui::DragFloat("Angle X", &obj.angleX, 0.05f);
+            ImGui::DragFloat("Angle Y", &obj.angleY, 0.05f);
+            ImGui::DragFloat("Angle Z", &obj.angleZ, 0.05f);
+            ImGui::DragFloat("Scale", &obj.scale, 0.01f, 0.001f, 10.0f);
+        }
+
+        if (ImGui::CollapsingHeader("Material",
+                                    ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::ColorEdit3("Ambient", glm::value_ptr(obj.material.ambient));
+            ImGui::ColorEdit3("Diffuse", glm::value_ptr(obj.material.diffuse));
+            ImGui::ColorEdit3("Specular",
+                              glm::value_ptr(obj.material.specular));
+            ImGui::SliderFloat("Shininess", &obj.material.shininess, 1.0f,
+                               128.0f);
+        }
+    } else {
+        ImGui::Text("No object selected");
+    }
+
+    ImGui::End();
 }
 
 int main() {
