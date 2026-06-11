@@ -309,7 +309,15 @@ void handleImGuiFrame() {
 
     ImGui::Begin("Scene Inspector");
 
+    if (ImGui::CollapsingHeader("Debug View", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Show Light Debug Points", &showLightDebugPoints);
+        ImGui::Checkbox("Show Path Debug Line", &showPathDebugLine);
+    }
+
     if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::Selectable("None", selectedModel == -1)) {
+            selectedModel = -1;
+        }
         for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
             std::string label = "Object " + std::to_string(i);
             if (ImGui::Selectable(label.c_str(), selectedModel == i)) {
@@ -318,14 +326,12 @@ void handleImGuiFrame() {
         }
     }
 
-    if (selectedModel >= 0 &&
-        selectedModel < static_cast<int>(objects.size())) {
+    if (selectedModel >= 0 && selectedModel < static_cast<int>(objects.size())) {
         GameObject& obj = objects.at(selectedModel);
         ImGui::Separator();
         ImGui::Text("Selected: Object %d", selectedModel);
 
-        if (ImGui::CollapsingHeader("Transform",
-                                    ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::DragFloat3("Position", &obj.posX, 0.1f);
             ImGui::DragFloat("Angle X", &obj.angleX, 0.05f);
             ImGui::DragFloat("Angle Y", &obj.angleY, 0.05f);
@@ -333,17 +339,30 @@ void handleImGuiFrame() {
             ImGui::DragFloat("Scale", &obj.scale, 0.01f, 0.001f, 10.0f);
         }
 
-        if (ImGui::CollapsingHeader("Material",
-                                    ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::ColorEdit3("Ambient", glm::value_ptr(obj.material.ambient));
             ImGui::ColorEdit3("Diffuse", glm::value_ptr(obj.material.diffuse));
-            ImGui::ColorEdit3("Specular",
-                              glm::value_ptr(obj.material.specular));
-            ImGui::SliderFloat("Shininess", &obj.material.shininess, 1.0f,
-                               128.0f);
+            ImGui::ColorEdit3("Specular", glm::value_ptr(obj.material.specular));
+            ImGui::SliderFloat("Shininess", &obj.material.shininess, 1.0f, 128.0f);
         }
     } else {
+        ImGui::Separator();
         ImGui::Text("No object selected");
+    }
+
+    if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen)) {
+        for (int i = 0; i < lightCount; ++i) {
+            std::string label = "Light " + std::to_string(i);
+            if (ImGui::TreeNode(label.c_str())) {
+                bool enabled = lightStates[i].enabled != 0;
+                if (ImGui::Checkbox("Enabled", &enabled)) {
+                    lightStates[i].enabled = enabled ? 1 : 0;
+                }
+                ImGui::DragFloat3("Position", glm::value_ptr(lightStates[i].position), 0.1f);
+                ImGui::ColorEdit3("Color", glm::value_ptr(lightStates[i].color));
+                ImGui::TreePop();
+            }
+        }
     }
 
     ImGui::End();
