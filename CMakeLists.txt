@@ -17,7 +17,12 @@ FetchContent_Declare(
   GIT_TAG master  # Define a versão desejada da GLM
 )
 
-FetchContent_MakeAvailable(glfw glm)
+FetchContent_Declare(
+  dear_im_gui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG docking
+)
+FetchContent_MakeAvailable(glfw glm dear_im_gui)
 
 FetchContent_Declare(
         stb_image

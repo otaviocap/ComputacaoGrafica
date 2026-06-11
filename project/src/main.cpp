@@ -1,4 +1,10 @@
 #include <glad.h>
+//
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+//
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
 
 #include <array>
 #include <cstdio>
@@ -9,12 +15,12 @@
 #include "BaseShader.hpp"
 #include "Camera.hpp"
 #include "DebugRenderer.hpp"
-#include "GLFW/glfw3.h"
 #include "GameObject.hpp"
 #include "LightState.hpp"
 #include "ObjLoader.hpp"
 #include "PathAnimator.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include "main.h"
 
 constexpr GLuint WIDTH = 1000;
 constexpr GLuint HEIGHT = 1000;
@@ -46,6 +52,16 @@ GLuint debugShaderID = 0;
 GLuint debugVAO = 0;
 GLuint debugVBO = 0;
 GLuint uboLights = 0;
+
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+const char* glsl_version = "#version 100";
+#elif defined(IMGUI_IMPL_OPENGL_ES3)
+const char* glsl_version = "#version 300 es";
+#elif defined(__APPLE__)
+const char* glsl_version = "#version 150";
+#else
+const char* glsl_version = "#version 130";
+#endif
 
 std::array<LightState, MAX_LIGHTS> lightStates = {
     LightState{glm::vec3(-2.5f, 3.5f, 2.0f), 0.0f, glm::vec3(1.0f, 1.0f, 1.0f),
@@ -188,15 +204,38 @@ void handleInput() {
     if (keys[GLFW_KEY_RIGHT_BRACKET]) obj.scale -= step;
 }
 
-bool validateAndStartOpenGl(GLFWwindow*& window) {
+bool validateAndStartOpenGl(GLFWwindow*& window, float main_scale) {
     glfwInit();
+
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+    // GL ES 2.0 + GLSL 100 (WebGL 1.0)
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(IMGUI_IMPL_OPENGL_ES3)
+    // GL ES 3.0 + GLSL 300 es (WebGL 2.0)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(__APPLE__)
+    // GL 3.2 + GLSL 150
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);  // Required on Mac
+#else
+    // GL 3.0 + GLSL 130
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+
+    // only glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // 3.0+ only
+#endif
+
     glfwWindowHint(GLFW_SAMPLES, 8);
 
     window =
-        glfwCreateWindow(ScreenWidth, ScreenHeight, "Paths", nullptr, nullptr);
+        glfwCreateWindow(ScreenWidth * main_scale, ScreenHeight * main_scale,
+                         "Paths", nullptr, nullptr);
     if (window == nullptr) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -223,9 +262,57 @@ void loadObjects() {
     }
 }
 
+void setupImGui(float main_scale, GLFWwindow* window) {
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |=
+        ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+    io.ConfigFlags |=
+        ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    // ImGui::StyleColorsLight();
+
+    // Setup scaling
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.ScaleAllSizes(
+        main_scale);  // Bake a fixed style scale. (until we have a solution for
+                      // dynamic style scaling, changing this requires resetting
+                      // Style + calling this again)
+    style.FontScaleDpi =
+        main_scale;  // Set initial font scale. (in docking branch: using
+                     // io.ConfigDpiScaleFonts=true automatically overrides this
+                     // for every window depending on the current monitor)
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+#ifdef __EMSCRIPTEN__
+    ImGui_ImplGlfw_InstallEmscriptenCallbacks(window, "#canvas");
+#endif
+    ImGui_ImplOpenGL3_Init(glsl_version);
+}
+
+void handleImGuiFrame() {
+    // Start the Dear ImGui frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    bool a = true;
+
+    ImGui::ShowDemoWindow(&a);
+}
+
 int main() {
     GLFWwindow* window;
-    if (!validateAndStartOpenGl(window)) {
+
+    float main_scale = 1.0f;
+
+    if (!validateAndStartOpenGl(window, main_scale)) {
         return -1;
     }
 
@@ -279,12 +366,16 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
+    setupImGui(main_scale, window);
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
         const float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
+        handleImGuiFrame();
 
         handleInput();
         updateObjectPaths(objects, deltaTime, PATH_SPEED);
@@ -346,8 +437,13 @@ int main() {
                               viewportHeight);
         }
 
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window);
     }
+
+    imguiCleanup();
 
     glDeleteVertexArrays(1, &debugVAO);
     glDeleteBuffers(1, &debugVBO);
@@ -362,4 +458,10 @@ int main() {
 
     glfwTerminate();
     return 0;
+}
+
+void imguiCleanup() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 }
