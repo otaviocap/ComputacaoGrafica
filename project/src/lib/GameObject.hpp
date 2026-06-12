@@ -4,9 +4,18 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <string>
 #include <vector>
 
 #include "Material.hpp"
+
+struct MeshPart {
+    GLuint vao = 0;
+    int vertexNum = 0;
+    GLuint textureId = 0;
+    Material material;
+    std::string name;
+};
 
 class GameObject {
   public:
@@ -20,10 +29,7 @@ class GameObject {
     float pathProgress = 0.0f;
     std::vector<glm::vec3> controlPoints;
 
-    GLuint vao = 0;
-    int vertexNum = 0;
-    GLuint textureId = 0;
-    Material material;
+    std::vector<MeshPart> meshes;
 
     glm::vec3 getPosition() const { return glm::vec3(posX, posY, posZ); }
 

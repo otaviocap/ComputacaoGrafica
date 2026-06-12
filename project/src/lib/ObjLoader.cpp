@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <map>
 
 #include "Texture.hpp"
 #include "VboHelper.hpp"
@@ -24,20 +25,17 @@ std::string getDirectory(const std::string& filePath) {
     return filePath.substr(0, found + 1);
 }
 
-Material loadMaterialFromMTL(const std::string& mtlPath,
-                             const std::string& targetMaterial,
-                             std::string& textureFile) {
-    Material material;
-    textureFile.clear();
-
+std::map<std::string, std::pair<Material, std::string>> loadAllMaterialsFromMTL(const std::string& mtlPath) {
+    std::map<std::string, std::pair<Material, std::string>> materials;
+    
     std::ifstream file(mtlPath.c_str());
     if (!file.is_open()) {
         std::cerr << "Erro ao tentar ler o arquivo " << mtlPath << std::endl;
-        return material;
+        return materials;
     }
 
     std::string line;
-    bool readingTarget = targetMaterial.empty();
+    std::string currentMaterialName;
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') continue;
 
@@ -46,34 +44,25 @@ Material loadMaterialFromMTL(const std::string& mtlPath,
         ss >> word;
 
         if (word == "newmtl") {
-            std::string name;
-            ss >> name;
-            if (!targetMaterial.empty()) {
-                readingTarget = (name == targetMaterial);
-            } else {
-                readingTarget = true;
+            ss >> currentMaterialName;
+            materials[currentMaterialName] = {Material(), ""};
+        } else if (!currentMaterialName.empty()) {
+            auto& matPair = materials[currentMaterialName];
+            if (word == "Ka") {
+                ss >> matPair.first.ambient.r >> matPair.first.ambient.g >> matPair.first.ambient.b;
+            } else if (word == "Kd") {
+                ss >> matPair.first.diffuse.r >> matPair.first.diffuse.g >> matPair.first.diffuse.b;
+            } else if (word == "Ks") {
+                ss >> matPair.first.specular.r >> matPair.first.specular.g >> matPair.first.specular.b;
+            } else if (word == "Ns") {
+                ss >> matPair.first.shininess;
+            } else if (word == "map_Kd") {
+                ss >> matPair.second;
             }
-        }
-
-        if (!readingTarget) continue;
-
-        if (word == "Ka") {
-            ss >> material.ambient.r >> material.ambient.g >>
-                material.ambient.b;
-        } else if (word == "Kd") {
-            ss >> material.diffuse.r >> material.diffuse.g >>
-                material.diffuse.b;
-        } else if (word == "Ks") {
-            ss >> material.specular.r >> material.specular.g >>
-                material.specular.b;
-        } else if (word == "Ns") {
-            ss >> material.shininess;
-        } else if (word == "map_Kd") {
-            ss >> textureFile;
         }
     }
 
-    return material;
+    return materials;
 }
 
 void addVertexToBuffer(const VertexIndices& idx,
@@ -103,20 +92,19 @@ void addVertexToBuffer(const VertexIndices& idx,
     vBuffer.push_back(n.z);
 }
 
-GLuint loadSimpleOBJ(const std::string& filePath, int& nVertices,
-                     GLuint& textureId, Material& material) {
+void loadMultiMaterialOBJ(const std::string& filePath, std::vector<MeshPart>& outMeshes) {
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec2> texCoords;
     std::vector<glm::vec3> normals;
-    std::vector<GLfloat> vBuffer;
+    std::map<std::string, std::vector<GLfloat>> vBuffers;
     std::string mtlFile;
-    std::string activeMaterial;
+    std::string activeMaterial = "default";
     const std::string objDirectory = getDirectory(filePath);
 
     std::ifstream file(filePath.c_str());
     if (!file.is_open()) {
         std::cerr << "Erro ao tentar ler o arquivo " << filePath << std::endl;
-        return 0;
+        return;
     }
 
     std::string line;
@@ -162,56 +150,56 @@ GLuint loadSimpleOBJ(const std::string& filePath, int& nVertices,
                 face.push_back(idx);
             }
 
-            // Triangle Fan Triangulation
+            auto& currentBuffer = vBuffers[activeMaterial];
             for (size_t i = 1; i < face.size() - 1; ++i) {
-                addVertexToBuffer(face[0], vertices, texCoords, normals,
-                                  vBuffer);
-                addVertexToBuffer(face[i], vertices, texCoords, normals,
-                                  vBuffer);
-                addVertexToBuffer(face[i + 1], vertices, texCoords, normals,
-                                  vBuffer);
+                addVertexToBuffer(face[0], vertices, texCoords, normals, currentBuffer);
+                addVertexToBuffer(face[i], vertices, texCoords, normals, currentBuffer);
+                addVertexToBuffer(face[i + 1], vertices, texCoords, normals, currentBuffer);
             }
         } else if (word == "mtllib") {
             ss >> mtlFile;
         } else if (word == "usemtl") {
-            if (activeMaterial.empty()) {
-                ss >> activeMaterial;
-            }
+            ss >> activeMaterial;
         }
     }
-
     file.close();
 
+    std::map<std::string, std::pair<Material, std::string>> loadedMaterials;
     if (!mtlFile.empty()) {
-        std::string textureFile;
-        material = loadMaterialFromMTL(objDirectory + mtlFile, activeMaterial,
-                                       textureFile);
-        if (!textureFile.empty()) {
-            textureId = loadTexture(objDirectory + textureFile);
-        }
+        loadedMaterials = loadAllMaterialsFromMTL(objDirectory + mtlFile);
     }
 
-    GLuint VAO;
-    glGenVertexArrays(1, &VAO);
-    createVBOAndBind(VAO, vBuffer.data(), static_cast<int>(vBuffer.size()));
+    for (auto& entry : vBuffers) {
+        const std::string& matName = entry.first;
+        std::vector<GLfloat>& buffer = entry.second;
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-                          vertexStride * sizeof(GLfloat), (GLvoid*)0);
-    glEnableVertexAttribArray(0);
+        if (buffer.empty()) continue;
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
-                          vertexStride * sizeof(GLfloat),
-                          (GLvoid*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
+        MeshPart part;
+        part.name = matName;
+        part.vertexNum = static_cast<int>(buffer.size() / vertexStride);
+        
+        if (loadedMaterials.count(matName)) {
+            part.material = loadedMaterials[matName].first;
+            std::string texFile = loadedMaterials[matName].second;
+            if (!texFile.empty()) {
+                part.textureId = loadTexture(objDirectory + texFile);
+            }
+        }
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
-                          vertexStride * sizeof(GLfloat),
-                          (GLvoid*)(5 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
+        glGenVertexArrays(1, &part.vao);
+        createVBOAndBind(part.vao, buffer.data(), static_cast<int>(buffer.size()));
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertexStride * sizeof(GLfloat), (GLvoid*)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, vertexStride * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, vertexStride * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(2);
 
-    nVertices = static_cast<int>(vBuffer.size() / vertexStride);
-    return VAO;
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+
+        outMeshes.push_back(part);
+    }
 }

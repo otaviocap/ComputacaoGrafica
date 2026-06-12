@@ -3,11 +3,12 @@
 #include <glad.h>
 
 #include <string>
+#include <vector>
+#include <map>
 
 #include "GameObject.hpp"
 #include "Material.hpp"
 
 std::string getDirectory(const std::string& filePath);
-Material loadMaterialFromMTL(const std::string& mtlPath, std::string& textureFile);
-GLuint loadSimpleOBJ(const std::string& filePath, int& nVertices,
-                     GLuint& textureId, Material& material);
+std::map<std::string, std::pair<Material, std::string>> loadAllMaterialsFromMTL(const std::string& mtlPath);
+void loadMultiMaterialOBJ(const std::string& filePath, std::vector<MeshPart>& outMeshes);

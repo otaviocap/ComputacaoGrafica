@@ -259,8 +259,7 @@ bool validateAndStartOpenGl(GLFWwindow*& window, float main_scale) {
 void loadObjects() {
     for (const std::string& modelPath : modelPaths) {
         GameObject obj;
-        obj.vao = loadSimpleOBJ(modelPath, obj.vertexNum, obj.textureId,
-                                obj.material);
+        loadMultiMaterialOBJ(modelPath, obj.meshes);
         objects.push_back(obj);
     }
 }
@@ -339,14 +338,18 @@ void handleImGuiFrame() {
             ImGui::DragFloat("Scale", &obj.scale, 0.01f, 0.001f, 10.0f);
         }
 
-        if (ImGui::CollapsingHeader("Material",
+        if (ImGui::CollapsingHeader("Materials",
                                     ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::ColorEdit3("Ambient", glm::value_ptr(obj.material.ambient));
-            ImGui::ColorEdit3("Diffuse", glm::value_ptr(obj.material.diffuse));
-            ImGui::ColorEdit3("Specular",
-                              glm::value_ptr(obj.material.specular));
-            ImGui::SliderFloat("Shininess", &obj.material.shininess, 1.0f,
-                               128.0f);
+            for (int i = 0; i < static_cast<int>(obj.meshes.size()); ++i) {
+                MeshPart& mesh = obj.meshes[i];
+                if (ImGui::TreeNode(mesh.name.empty() ? std::to_string(i).c_str() : mesh.name.c_str())) {
+                    ImGui::ColorEdit3("Ambient", glm::value_ptr(mesh.material.ambient));
+                    ImGui::ColorEdit3("Diffuse", glm::value_ptr(mesh.material.diffuse));
+                    ImGui::ColorEdit3("Specular", glm::value_ptr(mesh.material.specular));
+                    ImGui::SliderFloat("Shininess", &mesh.material.shininess, 1.0f, 128.0f);
+                    ImGui::TreePop();
+                }
+            }
         }
     } else {
         ImGui::Separator();
@@ -471,20 +474,20 @@ int main() {
 
             const glm::mat4 model = obj.getModelMatrix();
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glUniform3fv(materialAmbientLoc, 1,
-                         glm::value_ptr(obj.material.ambient));
-            glUniform3fv(materialDiffuseLoc, 1,
-                         glm::value_ptr(obj.material.diffuse));
-            glUniform3fv(materialSpecularLoc, 1,
-                         glm::value_ptr(obj.material.specular));
-            glUniform1f(materialShininessLoc, obj.material.shininess);
 
-            glBindVertexArray(obj.vao);
-            glBindTexture(GL_TEXTURE_2D, obj.textureId);
-            glDrawArrays(GL_TRIANGLES, 0, obj.vertexNum);
+            for (auto& mesh : obj.meshes) {
+                glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(mesh.material.ambient));
+                glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(mesh.material.diffuse));
+                glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(mesh.material.specular));
+                glUniform1f(materialShininessLoc, mesh.material.shininess);
 
-            if (i == selectedModel) {
-                glDrawArrays(GL_POINTS, 0, obj.vertexNum);
+                glBindVertexArray(mesh.vao);
+                glBindTexture(GL_TEXTURE_2D, mesh.textureId);
+                glDrawArrays(GL_TRIANGLES, 0, mesh.vertexNum);
+
+                if (i == selectedModel) {
+                    glDrawArrays(GL_POINTS, 0, mesh.vertexNum);
+                }
             }
 
             glBindVertexArray(0);
@@ -518,8 +521,10 @@ int main() {
     glDeleteProgram(shaderID);
 
     for (GameObject& obj : objects) {
-        glDeleteVertexArrays(1, &obj.vao);
-        glDeleteTextures(1, &obj.textureId);
+        for (auto& mesh : obj.meshes) {
+            glDeleteVertexArrays(1, &mesh.vao);
+            glDeleteTextures(1, &mesh.textureId);
+        }
     }
 
     glfwTerminate();
