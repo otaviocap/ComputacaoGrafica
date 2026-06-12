@@ -73,9 +73,9 @@ std::array<LightState, MAX_LIGHTS> lightStates = {
                true},
 };
 
-const std::array<std::string, 1> modelPaths = {
+const std::array<std::string, 2> modelPaths = {
     std::string(VIEWER_ASSETS_DIR) + "/casa/casa.obj",
-};
+    std::string(VIEWER_ASSETS_DIR) + "/Modelos3D/Suzanne.obj"};
 
 void toggleLight(int index) {
     lightStates[index].enabled = !lightStates[index].enabled;
@@ -342,11 +342,17 @@ void handleImGuiFrame() {
                                     ImGuiTreeNodeFlags_DefaultOpen)) {
             for (int i = 0; i < static_cast<int>(obj.meshes.size()); ++i) {
                 MeshPart& mesh = obj.meshes[i];
-                if (ImGui::TreeNode(mesh.name.empty() ? std::to_string(i).c_str() : mesh.name.c_str())) {
-                    ImGui::ColorEdit3("Ambient", glm::value_ptr(mesh.material.ambient));
-                    ImGui::ColorEdit3("Diffuse", glm::value_ptr(mesh.material.diffuse));
-                    ImGui::ColorEdit3("Specular", glm::value_ptr(mesh.material.specular));
-                    ImGui::SliderFloat("Shininess", &mesh.material.shininess, 1.0f, 128.0f);
+                if (ImGui::TreeNode(mesh.name.empty()
+                                        ? std::to_string(i).c_str()
+                                        : mesh.name.c_str())) {
+                    ImGui::ColorEdit3("Ambient",
+                                      glm::value_ptr(mesh.material.ambient));
+                    ImGui::ColorEdit3("Diffuse",
+                                      glm::value_ptr(mesh.material.diffuse));
+                    ImGui::ColorEdit3("Specular",
+                                      glm::value_ptr(mesh.material.specular));
+                    ImGui::SliderFloat("Shininess", &mesh.material.shininess,
+                                       1.0f, 128.0f);
                     ImGui::TreePop();
                 }
             }
@@ -424,6 +430,7 @@ int main() {
     glActiveTexture(GL_TEXTURE0);
 
     const GLint modelLoc = glGetUniformLocation(shaderID, "model");
+    const GLint useTextureLoc = glGetUniformLocation(shaderID, "useTexture");
     const GLint materialAmbientLoc =
         glGetUniformLocation(shaderID, "materialAmbient");
     const GLint materialDiffuseLoc =
@@ -476,9 +483,13 @@ int main() {
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
             for (auto& mesh : obj.meshes) {
-                glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(mesh.material.ambient));
-                glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(mesh.material.diffuse));
-                glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(mesh.material.specular));
+                glUniform1i(useTextureLoc, mesh.textureId != 0 ? 1 : 0);
+                glUniform3fv(materialAmbientLoc, 1,
+                             glm::value_ptr(mesh.material.ambient));
+                glUniform3fv(materialDiffuseLoc, 1,
+                             glm::value_ptr(mesh.material.diffuse));
+                glUniform3fv(materialSpecularLoc, 1,
+                             glm::value_ptr(mesh.material.specular));
                 glUniform1f(materialShininessLoc, mesh.material.shininess);
 
                 glBindVertexArray(mesh.vao);

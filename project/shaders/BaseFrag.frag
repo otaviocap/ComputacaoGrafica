@@ -17,6 +17,7 @@ layout (std140) uniform LightBlock {
 };
 
 uniform sampler2D texBuff;
+uniform int useTexture;
 uniform vec3 camPos;
 uniform vec3 materialAmbient;
 uniform vec3 materialDiffuse;
@@ -27,7 +28,11 @@ out vec4 color;
 
 void main()
 {
-    vec3 albedo = texture(texBuff, texCoord).rgb;
+    vec3 albedo = vec3(1.0);
+    if (useTexture != 0) {
+        albedo = texture(texBuff, texCoord).rgb;
+    }
+
     vec3 norm = normalize(vNormal);
     vec3 viewDir = normalize(camPos - fragPos);
     vec3 result = 0.12 * materialAmbient * albedo;
