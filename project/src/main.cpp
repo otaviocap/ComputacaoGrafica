@@ -10,6 +10,7 @@
 
 #include <array>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -25,6 +26,8 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "main.h"
 
+namespace fs = std::filesystem;
+
 constexpr GLuint WIDTH = 1000;
 constexpr GLuint HEIGHT = 1000;
 constexpr float CAMERA_SPEED = 3.0f;
@@ -38,6 +41,7 @@ int ScreenHeight = HEIGHT;
 
 Camera camera;
 std::vector<GameObject> objects;
+std::vector<std::string> availableModels;
 int selectedModel = -1;
 int lightCount = 3;
 bool showLightDebugPoints = false;
@@ -87,6 +91,18 @@ void uploadLights() {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
+void refreshAvailableModels() {
+    availableModels.clear();
+    std::string path = std::string(VIEWER_ASSETS_DIR) + "/models";
+    if (!fs::exists(path)) return;
+
+    for (const auto& entry : fs::recursive_directory_iterator(path)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".obj") {
+            availableModels.push_back(entry.path().string());
+        }
+    }
+}
+
 void addObject(const std::string& path) {
     GameObject obj;
     obj.modelPath = path;
@@ -124,10 +140,9 @@ void saveScene(const std::string& filename) {
     for (int i = 0; i < MAX_LIGHTS; ++i) {
         if (i >= lightCount && !lightStates[i].enabled) continue;
         toml::table lightTbl;
-        lightTbl.insert("position",
-                        toml::array{lightStates[i].position.x,
-                                    lightStates[i].position.y,
-                                    lightStates[i].position.z});
+        lightTbl.insert("position", toml::array{lightStates[i].position.x,
+                                                lightStates[i].position.y,
+                                                lightStates[i].position.z});
         lightTbl.insert(
             "color", toml::array{lightStates[i].color.r, lightStates[i].color.g,
                                  lightStates[i].color.b});
@@ -192,14 +207,20 @@ void loadScene(const std::string& filename) {
                 if (i < lightCount) {
                     if (auto lightTbl = (*lightsArr)[i].as_table()) {
                         if (auto posArr = (*lightTbl)["position"].as_array()) {
-                            lightStates[i].position.x = (*posArr)[0].value_or(0.0f);
-                            lightStates[i].position.y = (*posArr)[1].value_or(0.0f);
-                            lightStates[i].position.z = (*posArr)[2].value_or(0.0f);
+                            lightStates[i].position.x =
+                                (*posArr)[0].value_or(0.0f);
+                            lightStates[i].position.y =
+                                (*posArr)[1].value_or(0.0f);
+                            lightStates[i].position.z =
+                                (*posArr)[2].value_or(0.0f);
                         }
                         if (auto colorArr = (*lightTbl)["color"].as_array()) {
-                            lightStates[i].color.r = (*colorArr)[0].value_or(1.0f);
-                            lightStates[i].color.g = (*colorArr)[1].value_or(1.0f);
-                            lightStates[i].color.b = (*colorArr)[2].value_or(1.0f);
+                            lightStates[i].color.r =
+                                (*colorArr)[0].value_or(1.0f);
+                            lightStates[i].color.g =
+                                (*colorArr)[1].value_or(1.0f);
+                            lightStates[i].color.b =
+                                (*colorArr)[2].value_or(1.0f);
                         }
                         lightStates[i].enabled =
                             (*lightTbl)["enabled"].value_or(true) ? 1 : 0;
@@ -238,10 +259,10 @@ void loadScene(const std::string& filename) {
                     if (auto cpArr = (*objTbl)["controlPoints"].as_array()) {
                         for (auto& cpNode : *cpArr) {
                             if (auto cpSubArr = cpNode.as_array()) {
-                                obj.controlPoints.push_back(glm::vec3(
-                                    (*cpSubArr)[0].value_or(0.0f),
-                                    (*cpSubArr)[1].value_or(0.0f),
-                                    (*cpSubArr)[2].value_or(0.0f)));
+                                obj.controlPoints.push_back(
+                                    glm::vec3((*cpSubArr)[0].value_or(0.0f),
+                                              (*cpSubArr)[1].value_or(0.0f),
+                                              (*cpSubArr)[2].value_or(0.0f)));
                             }
                         }
                     }
@@ -351,7 +372,8 @@ void handleInput() {
     if (keys[GLFW_KEY_A]) camera.moveLeft(movement);
     if (keys[GLFW_KEY_D]) camera.moveRight(movement);
 
-    if (selectedModel < 0 || selectedModel >= static_cast<int>(objects.size())) {
+    if (selectedModel < 0 ||
+        selectedModel >= static_cast<int>(objects.size())) {
         return;
     }
 
@@ -481,10 +503,21 @@ void handleImGuiFrame() {
     }
 
     if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
-        static char objPath[256] = "assets/casa/casa.obj";
-        ImGui::InputText("New Obj Path", objPath, sizeof(objPath));
-        if (ImGui::Button("Add Object")) {
-            addObject(objPath);
+        if (ImGui::TreeNode("Asset Browser")) {
+            if (ImGui::Button("Refresh Assets")) {
+                refreshAvailableModels();
+            }
+            ImGui::Separator();
+            for (const auto& model : availableModels) {
+                fs::path p(model);
+                if (ImGui::Button(p.filename().string().c_str())) {
+                    addObject(model);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", model.c_str());
+                }
+            }
+            ImGui::TreePop();
         }
         ImGui::Separator();
 
@@ -492,13 +525,16 @@ void handleImGuiFrame() {
             selectedModel = -1;
         }
         for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
-            std::string label = "Object " + std::to_string(i) + " (" + objects[i].modelPath + ")";
+            fs::path p(objects[i].modelPath);
+            std::string label = "Object " + std::to_string(i) + " (" +
+                                p.filename().string() + ")";
             if (ImGui::Selectable(label.c_str(), selectedModel == i)) {
                 selectedModel = i;
             }
         }
 
-        if (selectedModel != -1 && selectedModel < static_cast<int>(objects.size())) {
+        if (selectedModel != -1 &&
+            selectedModel < static_cast<int>(objects.size())) {
             if (ImGui::Button("Unload Selected Object")) {
                 auto& obj = objects[selectedModel];
                 for (auto& mesh : obj.meshes) {
@@ -552,7 +588,8 @@ void handleImGuiFrame() {
 
     if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (ImGui::Button("Add Light") && lightCount < MAX_LIGHTS) {
-            lightStates[lightCount] = LightState{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f), true};
+            lightStates[lightCount] =
+                LightState{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f), true};
             lightCount++;
         }
 
@@ -567,15 +604,15 @@ void handleImGuiFrame() {
                     "Position", glm::value_ptr(lightStates[i].position), 0.1f);
                 ImGui::ColorEdit3("Color",
                                   glm::value_ptr(lightStates[i].color));
-                
+
                 if (ImGui::Button("Remove Light")) {
                     for (int j = i; j < lightCount - 1; ++j) {
-                        lightStates[j] = lightStates[j+1];
+                        lightStates[j] = lightStates[j + 1];
                     }
-                    lightStates[lightCount-1].enabled = 0;
+                    lightStates[lightCount - 1].enabled = 0;
                     lightCount--;
                     ImGui::TreePop();
-                    break; 
+                    break;
                 }
 
                 ImGui::TreePop();
@@ -627,8 +664,8 @@ int main() {
     const GLuint blockIndex = glGetUniformBlockIndex(shaderID, "LightBlock");
     glUniformBlockBinding(shaderID, blockIndex, 0);
 
-    // Initial scene setup
-    addObject(std::string(VIEWER_ASSETS_DIR) + "/casa/casa.obj");
+    refreshAvailableModels();
+    addObject(std::string(VIEWER_ASSETS_DIR) + "/models/casa.obj");
 
     glUseProgram(shaderID);
     glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
@@ -711,7 +748,7 @@ int main() {
 
         if (showLightDebugPoints) {
             drawLightDebugPoints(debugShaderID, camera, debugVAO, debugVBO,
-                                 lightStates, lightCount, viewportWidth,
+                                 lightStates, MAX_LIGHTS, viewportWidth,
                                  viewportHeight);
         }
 
