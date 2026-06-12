@@ -270,6 +270,9 @@ void loadScene(const std::string& filename) {
                 }
             }
         }
+        if (!objects.empty()) {
+            selectedModel = 0;
+        }
         std::cout << "Scene loaded from " << filename << std::endl;
     } catch (const toml::parse_error& err) {
         std::cerr << "Failed to parse TOML: " << err << std::endl;
@@ -489,11 +492,11 @@ void handleImGuiFrame() {
 
     if (ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (ImGui::Button("Save Scene")) {
-            saveScene("scene.toml");
+            saveScene(std::string(VIEWER_ASSETS_DIR) + "/scenes/scene.toml");
         }
         ImGui::SameLine();
         if (ImGui::Button("Load Scene")) {
-            loadScene("scene.toml");
+            loadScene(std::string(VIEWER_ASSETS_DIR) + "/scenes/scene.toml");
         }
     }
 
