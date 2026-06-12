@@ -428,9 +428,9 @@ bool validateAndStartOpenGl(GLFWwindow*& window, float main_scale) {
 
     glfwWindowHint(GLFW_SAMPLES, 8);
 
-    window =
-        glfwCreateWindow(ScreenWidth * main_scale, ScreenHeight * main_scale,
-                         "Paths", nullptr, nullptr);
+    window = glfwCreateWindow(
+        ScreenWidth * main_scale, ScreenHeight * main_scale,
+        "Visualizador de cenas 3D - Otávio Henrique", nullptr, nullptr);
     if (window == nullptr) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -563,6 +563,7 @@ void handleImGuiFrame() {
             ImGui::DragFloat("Angle Y", &obj.angleY, 0.05f);
             ImGui::DragFloat("Angle Z", &obj.angleZ, 0.05f);
             ImGui::DragFloat("Scale", &obj.scale, 0.01f, 0.001f, 10.0f);
+            ImGui::Checkbox("Enable Animation", &obj.enableAnimation);
         }
 
         if (ImGui::CollapsingHeader("Materials",

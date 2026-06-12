@@ -28,6 +28,7 @@ class GameObject {
     float posZ = 0.0f;
     float scale = 0.3f;
     float pathProgress = 0.0f;
+    bool enableAnimation = true;
     std::vector<glm::vec3> controlPoints;
 
     std::vector<MeshPart> meshes;

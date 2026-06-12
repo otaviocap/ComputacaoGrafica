@@ -2,6 +2,10 @@
 
 Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) criado para a Atividade Acadêmica Computação Gráfica do curso de graduação em Ciência da Computação - modalidade híbrida - da Unisinos. Ele é estruturado para facilitar a organização dos arquivos e a compilação dos projetos utilizando CMake.
 
+## Resultado final da disciplina
+
+![Resultado do visualizador de cenas funcionando](/docs/3d_viewer.webm)
+
 ## 📂 Estrutura do Repositório
 
 ```plaintext
@@ -23,7 +27,11 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 ├── 📄 GettingStarted.md      # Tutorial detalhado sobre como compilar usando o CMake
 ```
 
-Siga as instruções detalhadas em [GettingStarted.md](GettingStarted.md) para configurar e compilar o projeto.
+Siga as instruções detalhadas em [GettingStarted.md](GettingStarted.md) para configurar e compilar o projeto base.
+
+Para documentação detalhada sobre o **Visualizador de Cenas 3D (Projeto Final)**, incluindo setup, procedência de assets e referências bibliográficas, acesse:
+
+👉 **[README do Projeto (3D Scene Viewer)](project/README.md)**
 
 ## ⚠️ **IMPORTANTE: Baixar a GLAD Manualmente**
 Para que o projeto funcione corretamente, é necessário **baixar a GLAD manualmente** utilizando o **GLAD Generator**.

@@ -36,7 +36,8 @@ glm::vec3 objectPositionToWorldPosition(const glm::vec3& position) {
 
 void addControlPointToSelectedObject(std::vector<GameObject>& objects,
                                      int selectedModel, const Camera& camera) {
-    if (selectedModel < 0 || selectedModel >= static_cast<int>(objects.size())) {
+    if (selectedModel < 0 ||
+        selectedModel >= static_cast<int>(objects.size())) {
         return;
     }
 
@@ -51,6 +52,8 @@ void updateObjectPaths(std::vector<GameObject>& objects, float deltaTime,
         if (obj.controlPoints.size() < 4) {
             continue;
         }
+
+        if (!obj.enableAnimation) continue;
 
         obj.pathProgress += pathSpeed * deltaTime;
         const float segmentCount = static_cast<float>(obj.controlPoints.size());
