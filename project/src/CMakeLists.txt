@@ -9,7 +9,6 @@ target_compile_definitions(3d_viewer PRIVATE
     VIEWER_SHADER_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/../shaders\"
 )
 
-
 add_library(imgui
 	${dear_im_gui_SOURCE_DIR}/imgui.cpp
 	${dear_im_gui_SOURCE_DIR}/imgui_draw.cpp
@@ -37,5 +36,6 @@ target_link_libraries(3d_viewer PRIVATE
     3d_viewer_shaders
     glfw
     imgui
+    tomlplusplus::tomlplusplus
     ${OPENGL_LIBS}
 )

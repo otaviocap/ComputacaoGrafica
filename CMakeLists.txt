@@ -22,7 +22,12 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
   GIT_TAG docking
 )
-FetchContent_MakeAvailable(glfw glm dear_im_gui)
+
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.4.0
+)
 
 FetchContent_Declare(
         stb_image
@@ -30,7 +35,8 @@ FetchContent_Declare(
         GIT_TAG master
 )
 
-FetchContent_MakeAvailable(stb_image)
+FetchContent_MakeAvailable(glfw glm dear_im_gui tomlplusplus stb_image)
+
 
 # Adiciona as pastas de cabeçalhos
 include_directories(${CMAKE_SOURCE_DIR}/include)
