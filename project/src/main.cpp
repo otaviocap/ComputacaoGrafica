@@ -5,9 +5,12 @@
 //
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+//
+#include <toml++/toml.h>
 
 #include <array>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -86,6 +89,142 @@ void uploadLights() {
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(LightState) * lightCount,
                     lightStates.data());
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+void saveScene(const std::string& filename) {
+    toml::table tbl;
+
+    // Camera
+    toml::table cameraTbl;
+    cameraTbl.insert(
+        "position",
+        toml::array{camera.position.x, camera.position.y, camera.position.z});
+    cameraTbl.insert("yaw", camera.yaw);
+    cameraTbl.insert("pitch", camera.pitch);
+    cameraTbl.insert("fov", camera.fov);
+    tbl.insert("camera", cameraTbl);
+
+    // Lights
+    toml::array lightsArr;
+    for (int i = 0; i < lightCount; ++i) {
+        toml::table lightTbl;
+        lightTbl.insert("position", toml::array{lightStates[i].position.x,
+                                                lightStates[i].position.y,
+                                                lightStates[i].position.z});
+        lightTbl.insert(
+            "color", toml::array{lightStates[i].color.r, lightStates[i].color.g,
+                                 lightStates[i].color.b});
+        lightTbl.insert("enabled", (bool)lightStates[i].enabled);
+        lightsArr.push_back(lightTbl);
+    }
+    tbl.insert("lights", lightsArr);
+
+    // Objects
+    toml::array objectsArr;
+    for (const auto& obj : objects) {
+        toml::table objTbl;
+        objTbl.insert("position", toml::array{obj.posX, obj.posY, obj.posZ});
+        objTbl.insert("rotation",
+                      toml::array{obj.angleX, obj.angleY, obj.angleZ});
+        objTbl.insert("scale", obj.scale);
+        objTbl.insert("pathProgress", obj.pathProgress);
+
+        toml::array cpArr;
+        for (const auto& cp : obj.controlPoints) {
+            cpArr.push_back(toml::array{cp.x, cp.y, cp.z});
+        }
+        objTbl.insert("controlPoints", cpArr);
+        objectsArr.push_back(objTbl);
+    }
+    tbl.insert("objects", objectsArr);
+
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        file << tbl;
+        file.close();
+        std::cout << "Scene saved to " << filename << std::endl;
+    } else {
+        std::cerr << "Failed to open file for saving: " << filename
+                  << std::endl;
+    }
+}
+
+void loadScene(const std::string& filename) {
+    try {
+        toml::table tbl = toml::parse_file(filename);
+
+        // Camera
+        if (auto cameraTbl = tbl["camera"].as_table()) {
+            if (auto posArr = (*cameraTbl)["position"].as_array()) {
+                camera.position.x = (*posArr)[0].value_or(0.0f);
+                camera.position.y = (*posArr)[1].value_or(0.0f);
+                camera.position.z = (*posArr)[2].value_or(0.0f);
+            }
+            camera.yaw = (*cameraTbl)["yaw"].value_or(camera.yaw);
+            camera.pitch = (*cameraTbl)["pitch"].value_or(camera.pitch);
+            camera.fov = (*cameraTbl)["fov"].value_or(camera.fov);
+            camera.updateDirection();
+        }
+
+        // Lights
+        if (auto lightsArr = tbl["lights"].as_array()) {
+            lightCount = std::min((int)lightsArr->size(), MAX_LIGHTS);
+            for (int i = 0; i < lightCount; ++i) {
+                if (auto lightTbl = (*lightsArr)[i].as_table()) {
+                    if (auto posArr = (*lightTbl)["position"].as_array()) {
+                        lightStates[i].position.x = (*posArr)[0].value_or(0.0f);
+                        lightStates[i].position.y = (*posArr)[1].value_or(0.0f);
+                        lightStates[i].position.z = (*posArr)[2].value_or(0.0f);
+                    }
+                    if (auto colorArr = (*lightTbl)["color"].as_array()) {
+                        lightStates[i].color.r = (*colorArr)[0].value_or(1.0f);
+                        lightStates[i].color.g = (*colorArr)[1].value_or(1.0f);
+                        lightStates[i].color.b = (*colorArr)[2].value_or(1.0f);
+                    }
+                    lightStates[i].enabled =
+                        (*lightTbl)["enabled"].value_or(true) ? 1 : 0;
+                }
+            }
+        }
+
+        // Objects
+        if (auto objectsArr = tbl["objects"].as_array()) {
+            for (size_t i = 0; i < objectsArr->size(); ++i) {
+                if (i >= objects.size()) break;
+                if (auto objTbl = (*objectsArr)[i].as_table()) {
+                    auto& obj = objects[i];
+                    if (auto posArr = (*objTbl)["position"].as_array()) {
+                        obj.posX = (*posArr)[0].value_or(0.0f);
+                        obj.posY = (*posArr)[1].value_or(0.0f);
+                        obj.posZ = (*posArr)[2].value_or(0.0f);
+                    }
+                    if (auto rotArr = (*objTbl)["rotation"].as_array()) {
+                        obj.angleX = (*rotArr)[0].value_or(0.0f);
+                        obj.angleY = (*rotArr)[1].value_or(0.0f);
+                        obj.angleZ = (*rotArr)[2].value_or(0.0f);
+                    }
+                    obj.scale = (*objTbl)["scale"].value_or(obj.scale);
+                    obj.pathProgress =
+                        (*objTbl)["pathProgress"].value_or(obj.pathProgress);
+
+                    if (auto cpArr = (*objTbl)["controlPoints"].as_array()) {
+                        obj.controlPoints.clear();
+                        for (auto& cpNode : *cpArr) {
+                            if (auto cpSubArr = cpNode.as_array()) {
+                                obj.controlPoints.push_back(
+                                    glm::vec3((*cpSubArr)[0].value_or(0.0f),
+                                              (*cpSubArr)[1].value_or(0.0f),
+                                              (*cpSubArr)[2].value_or(0.0f)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        std::cout << "Scene loaded from " << filename << std::endl;
+    } catch (const toml::parse_error& err) {
+        std::cerr << "Failed to parse TOML: " << err << std::endl;
+    }
 }
 
 void framebuffer_size_callback(GLFWwindow*, int width, int height) {
@@ -305,6 +444,16 @@ void handleImGuiFrame() {
     ImGui::NewFrame();
 
     ImGui::Begin("Scene Inspector");
+
+    if (ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::Button("Save Scene")) {
+            saveScene("scene.toml");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load Scene")) {
+            loadScene("scene.toml");
+        }
+    }
 
     if (ImGui::CollapsingHeader("Debug View", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Show Light Debug Points", &showLightDebugPoints);
