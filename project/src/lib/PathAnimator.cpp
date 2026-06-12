@@ -31,7 +31,7 @@ glm::vec3 interpolateCatmullRom(const std::vector<glm::vec3>& points,
 }
 
 glm::vec3 objectPositionToWorldPosition(const glm::vec3& position) {
-    return glm::vec3(position.x, position.y, position.z - 3.0f);
+    return position;
 }
 
 void addControlPointToSelectedObject(std::vector<GameObject>& objects,

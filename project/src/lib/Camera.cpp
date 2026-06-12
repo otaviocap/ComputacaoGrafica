@@ -3,12 +3,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 Camera::Camera()
-    : position(0.0f, 0.0f, 0.0f),
+    : position(0.0f, 1.5f, 5.0f),
       front(0.0f, 0.0f, -1.0f),
       up(0.0f, 1.0f, 0.0f),
       yaw(-90.0f),
       pitch(0.0f),
-      fov(45.0f) {}
+      fov(45.0f) {
+    updateDirection();
+}
 
 glm::mat4 Camera::getViewMatrix() const {
     return glm::lookAt(position, position + front, up);

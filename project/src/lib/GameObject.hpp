@@ -42,7 +42,7 @@ class GameObject {
 
     glm::mat4 getModelMatrix() const {
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(posX, posY, posZ - 3.0f));
+        model = glm::translate(model, glm::vec3(posX, posY, posZ));
         model = glm::rotate(model, glm::radians(90.0f),
                             glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::rotate(model, angleX, glm::vec3(1.0f, 0.0f, 0.0f));
