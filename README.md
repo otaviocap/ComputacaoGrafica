@@ -4,7 +4,7 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 
 ## Resultado final da disciplina
 
-![Resultado do visualizador de cenas funcionando](/docs/3d_viewer.webm)
+![Resultado do visualizador de cenas funcionando](/docs/3d_viewer.mp4)
 
 ## 📂 Estrutura do Repositório
 

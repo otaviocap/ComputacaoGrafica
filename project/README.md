@@ -61,4 +61,4 @@ Os modelos 3D utilizados neste projeto foram obtidos de diversas fontes:
 
 ## Resultado
 
-![Resultado do visualizador de cenas funcionando](/docs/3d_viewer.webm)
+![Resultado do visualizador de cenas funcionando](/docs/3d_viewer.mp4)
