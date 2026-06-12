@@ -73,10 +73,8 @@ std::array<LightState, MAX_LIGHTS> lightStates = {
                true},
 };
 
-const std::array<std::string, 3> modelPaths = {
-    std::string(VIEWER_ASSETS_DIR) + "/Modelos3D/Suzanne.obj",
-    std::string(VIEWER_ASSETS_DIR) + "/Modelos3D/Suzanne.obj",
-    std::string(VIEWER_ASSETS_DIR) + "/Modelos3D/Suzanne.obj",
+const std::array<std::string, 1> modelPaths = {
+    std::string(VIEWER_ASSETS_DIR) + "/casa/casa.obj",
 };
 
 void toggleLight(int index) {
@@ -326,12 +324,14 @@ void handleImGuiFrame() {
         }
     }
 
-    if (selectedModel >= 0 && selectedModel < static_cast<int>(objects.size())) {
+    if (selectedModel >= 0 &&
+        selectedModel < static_cast<int>(objects.size())) {
         GameObject& obj = objects.at(selectedModel);
         ImGui::Separator();
         ImGui::Text("Selected: Object %d", selectedModel);
 
-        if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Transform",
+                                    ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::DragFloat3("Position", &obj.posX, 0.1f);
             ImGui::DragFloat("Angle X", &obj.angleX, 0.05f);
             ImGui::DragFloat("Angle Y", &obj.angleY, 0.05f);
@@ -339,11 +339,14 @@ void handleImGuiFrame() {
             ImGui::DragFloat("Scale", &obj.scale, 0.01f, 0.001f, 10.0f);
         }
 
-        if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Material",
+                                    ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::ColorEdit3("Ambient", glm::value_ptr(obj.material.ambient));
             ImGui::ColorEdit3("Diffuse", glm::value_ptr(obj.material.diffuse));
-            ImGui::ColorEdit3("Specular", glm::value_ptr(obj.material.specular));
-            ImGui::SliderFloat("Shininess", &obj.material.shininess, 1.0f, 128.0f);
+            ImGui::ColorEdit3("Specular",
+                              glm::value_ptr(obj.material.specular));
+            ImGui::SliderFloat("Shininess", &obj.material.shininess, 1.0f,
+                               128.0f);
         }
     } else {
         ImGui::Separator();
@@ -358,8 +361,10 @@ void handleImGuiFrame() {
                 if (ImGui::Checkbox("Enabled", &enabled)) {
                     lightStates[i].enabled = enabled ? 1 : 0;
                 }
-                ImGui::DragFloat3("Position", glm::value_ptr(lightStates[i].position), 0.1f);
-                ImGui::ColorEdit3("Color", glm::value_ptr(lightStates[i].color));
+                ImGui::DragFloat3(
+                    "Position", glm::value_ptr(lightStates[i].position), 0.1f);
+                ImGui::ColorEdit3("Color",
+                                  glm::value_ptr(lightStates[i].color));
                 ImGui::TreePop();
             }
         }
