@@ -19,6 +19,7 @@ struct MeshPart {
 
 class GameObject {
   public:
+    std::string modelPath;
     float angleX = 0.0f;
     float angleY = 0.0f;
     float angleZ = 0.0f;
