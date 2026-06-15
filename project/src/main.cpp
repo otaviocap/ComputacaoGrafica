@@ -24,7 +24,6 @@
 #include "ObjLoader.hpp"
 #include "PathAnimator.hpp"
 #include "glm/gtc/type_ptr.hpp"
-#include "main.h"
 
 namespace fs = std::filesystem;
 
@@ -482,6 +481,11 @@ void setupImGui(float main_scale, GLFWwindow* window) {
     ImGui_ImplOpenGL3_Init(glsl_version);
 }
 
+void imguiCleanup() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+}
 void handleImGuiFrame() {
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
@@ -781,10 +785,4 @@ int main() {
 
     glfwTerminate();
     return 0;
-}
-
-void imguiCleanup() {
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
 }
