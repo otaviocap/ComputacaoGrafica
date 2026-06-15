@@ -1,6 +1,10 @@
 # Project: 3D Scene Viewer
 
-Este é o projeto final para a Atividade Acadêmica de Computação Gráfica. Ele consiste em um visualizador de cenas 3D interativo com suporte a múltiplos objetos, materiais, iluminação dinâmica e um sistema de trajetórias (paths).
+Este é o projeto final para a Atividade Acadêmica de Computação Gráfica. Ele consiste em um visualizador de cenas 3D interativo com suporte a múltiplos objetos, materiais, 
+iluminação dinâmica e um sistema de trajetórias (paths).
+
+## Resultado
+<video width="630" height="300" src="https://github.com/user-attachments/assets/1f66a1db-aebe-49ad-8033-6326866253fe"></video>
 
 ## 🚀 Setup
 
@@ -58,7 +62,3 @@ Os modelos 3D utilizados neste projeto foram obtidos de diversas fontes:
 ### Código
 - [Snippets de Código](https://github.com/guilhermechagaskurtz/CGCCHibrido/tree/main/Code%20snippets)
 - [Padrão de projeto e referências da cadeira anterior](https://github.com/otaviocap/processamento-grafico)
-
-## Resultado
-
-[!(Resultado do visualizador de cenas funcionando)](/docs/3d_viewer.mp4)
